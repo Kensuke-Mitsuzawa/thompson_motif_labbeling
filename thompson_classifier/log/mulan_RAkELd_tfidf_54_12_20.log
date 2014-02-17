@@ -1,0 +1,1 @@
+Input command is following:java -jar ./mulan_interface/load_model_and_eval_test.jar -train_arff ../get_thompson_motif/classifier/mulan/exno54.arff -xml ./arff_and_xml/test_54.xml -eval_arff ./arff_and_xml/test_54.arff -reduce True -reduce_method binary -modelfilepath ../get_thompson_motif/classifier/mulan/exno54.model

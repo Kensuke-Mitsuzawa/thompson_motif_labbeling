@@ -1,0 +1,9 @@
+*.pyc
+
+.spyderworkspace
+.DS_Store
+big_document/
+test_resource/
+training_resource/
+
+search_system_ranking/

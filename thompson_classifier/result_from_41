@@ -1,0 +1,54 @@
+41
+------------------------------
+Hamming Loss:0.240909090909
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.136011904762 example-based recall:0.55 example-based F:0.215119047619 accuracy:0.136011904762
+Ave. number of classifier which returns 1:5.7
+42
+------------------------------
+Hamming Loss:0.240909090909
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.136011904762 example-based recall:0.55 example-based F:0.215119047619 accuracy:0.136011904762
+Ave. number of classifier which returns 1:5.7
+43
+------------------------------
+Hamming Loss:0.240909090909
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.152678571429 example-based recall:0.55 example-based F:0.231785714286 accuracy:0.152678571429
+Ave. number of classifier which returns 1:5.7
+44
+------------------------------
+Hamming Loss:0.240909090909
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.136011904762 example-based recall:0.55 example-based F:0.215119047619 accuracy:0.136011904762
+Ave. number of classifier which returns 1:5.7
+45
+------------------------------
+Hamming Loss:0.240909090909
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.136011904762 example-based recall:0.55 example-based F:0.215119047619 accuracy:0.136011904762
+Ave. number of classifier which returns 1:5.7
+46
+------------------------------
+Hamming Loss:0.240909090909
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.136011904762 example-based recall:0.55 example-based F:0.215119047619 accuracy:0.136011904762
+Ave. number of classifier which returns 1:5.7
+47
+------------------------------
+Hamming Loss:0.231818181818
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.138942307692 example-based recall:0.55 example-based F:0.219523809524 accuracy:0.138942307692
+Ave. number of classifier which returns 1:5.5
+48
+------------------------------
+Hamming Loss:0.227272727273
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.145535714286 example-based recall:0.6 example-based F:0.23119047619 accuracy:0.145535714286
+Ave. number of classifier which returns 1:5.6
+49
+------------------------------
+Hamming Loss:0.227272727273
+Subset Accuracy(classification accuracy):0.0
+example-based precision:0.146634615385 example-based recall:0.6 example-based F:0.232857142857 accuracy:0.146634615385
+Ave. number of classifier which returns 1:5.6

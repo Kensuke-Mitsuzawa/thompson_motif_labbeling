@@ -1,0 +1,14 @@
+1st_layer/*
+arow/*
+feature_map_character/*
+feature_map_numeric/*
+liblinear/*
+libsvm/*
+libsvm_format/*
+libsvm_format_dutch_semi/*
+libsvm_format_updated/*
+logistic_1st/*
+logistic_2nd/*
+mulan/*
+tfidf_weight/*
+character_expression/*

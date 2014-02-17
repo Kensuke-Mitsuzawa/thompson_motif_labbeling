@@ -1,0 +1,23 @@
+Input command is following:java -jar ./mulan_interface/load_model_and_eval_test.jar -train_arff ../get_thompson_motif/classifier/mulan/exno62.arff -xml ./arff_and_xml/test_62.xml -eval_arff ./arff_and_xml/test_62.arff -reduce True -reduce_method binary -modelfilepath ../get_thompson_motif/classifier/mulan/exno62.model
+Loading the dataset...
+
+Loading the eval dataset...
+
+Dec 20, 2013 7:27:14 AM mulan.examples.myself.load_model_and_eval_test main
+
+SEVERE: null
+
+java.io.FileNotFoundException: ../get_thompson_motif/classifier/mulan/exno62.model (No such file or directory)
+
+	at java.io.FileInputStream.open(Native Method)
+
+	at java.io.FileInputStream.<init>(FileInputStream.java:146)
+
+	at java.io.FileInputStream.<init>(FileInputStream.java:101)
+
+	at weka.core.SerializationHelper.read(SerializationHelper.java:270)
+
+	at mulan.examples.myself.load_model_and_eval_test.main(load_model_and_eval_test.java:133)
+
+
+
