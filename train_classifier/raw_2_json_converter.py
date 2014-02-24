@@ -5,6 +5,7 @@ import json,re,codecs,os,glob;
 from nltk.corpus import stopwords;
 from nltk import stem;
 from nltk import tokenize; 
+import nltk;
 import return_range;
 
 lemmatizer = stem.WordNetLemmatizer();
@@ -17,12 +18,17 @@ raw_doc_path='../../dutch_folktale_corpus/dutch_folktale_database_translated_kev
 raw_doc_path_2='../parsed_json/'
 #specify IFN raw document dirpath here
 raw_doc_path_ifn='../../corpus_dir/translated_google/'
+#specify DFD original document dirpath here
+raw_doc_path_dfd_orig='../../dutch_folktale_corpus/given_script/top_dutch/top_document_test/';
+
 #specify json document dirpath here
 json_doc_path='../test_resource/dfd'
 #specify json document dirpath here
 json_doc_path_2='../training_resource/tmi/'
 #specify json document of IFN dirpath here
 json_doc_path_ifn='../test_resource/ifn/'
+#specify json document save path of DFD original
+json_doc_path_dfd_orig='../test_resource/dfd_orig/'
 
 def make_filelist(dir_path):
     file_list=[];
@@ -168,6 +174,31 @@ def json_converter_ifn_head():
         with codecs.open(json_doc_path_ifn+filename,'w','utf-8') as f:
             json.dump(json_f_str,f,ensure_ascii='False',indent=4);
 
+def tokenize(filepath):
+    file_obj=codecs.open(filepath,'r','utf-8'); 
+    document_unicode=file_obj.read(); 
+    tokenized_document=nltk.tokenize.wordpunct_tokenize(document_unicode);
+    file_obj.close(); 
+    return tokenized_document;
+
+def json_converter_dfd_orig():
+    file_list=make_filelist(raw_doc_path_dfd_orig);
+    for filepath in file_list:
+        dfd_orig_one_doc_map={}
+        #ラベルの分解処理
+        label_list=(os.path.basename(filepath)).split('_')[:-1];
+        #tokenized_documentはリスト型
+        tokenized_document=tokenize(filepath);
+        #オランダ語はわからんが，一応すべて小文字化はしておく
+        tokenized_document=[t.lower() for t in tokenized_document];
+        
+        dfd_orig_one_doc_map['labels']=label_list;
+        dfd_orig_one_doc_map['doc_str']=tokenized_document;
+        
+        print filepath
+        with codecs.open(json_doc_path_dfd_orig+os.path.basename(filepath),'w','utf-8') as json_content:
+            json.dump(dfd_orig_one_doc_map,json_content,ensure_ascii=False,indent=4);
+
 def construct_class_training_1st(parent_node, all_thompson_tree):
     """
     一層目を指定した時に，一層目の各ラベルに属する単語から訓練事例を作って返す
@@ -210,4 +241,5 @@ if __name__=='__main__':
     raw_doc_list=make_filelist(raw_doc_path);
     #json_converter_1(raw_doc_list); 
     #json_converter_2();
-    json_converter_ifn_head();
+    #json_converter_ifn_head();
+    json_converter_dfd_orig();

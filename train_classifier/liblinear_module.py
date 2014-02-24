@@ -11,7 +11,7 @@ __date__="2014/02/11"
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 import sys, codecs, random, re, subprocess;
 import feature_function;
-env='local';
+env='pine';
 
 if env=='pine':
     #change below by an environment

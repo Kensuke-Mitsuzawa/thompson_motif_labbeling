@@ -1,4 +1,5 @@
 *.pyc
+*.out
 
 .spyderworkspace
 .DS_Store
