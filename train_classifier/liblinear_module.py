@@ -5,9 +5,8 @@
 Created on Thu Dec 12 12:16:52 2013
 
 @author: kensuke-mi
-__date__="2014/02/11"
+__date__="2014/02/25"
 """
-
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 import sys, codecs, random, re, subprocess;
 import feature_function;
@@ -48,7 +47,6 @@ suffix_name_log='.logistic.';
 tmp_modelpath_log='../classifier/logistic_1st/';
 #model 2nd
 model_path_log='../classifier/logistic_2nd/';
-
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 def unify_tarining_feature_space(training_map_feature_space):
@@ -439,144 +437,142 @@ def shape_format(training_map,mode,args):
     additional_instances_stack=[];
     #------------------------------------------------------------ 
     for correct_label_key in training_map:
-        instance_lines_num_map={'C':0, 'N':0};
-        lines_for_correct_instances_stack=[];
-        lines_for_incorrect_instances_stack=[];
-        instances_in_correct_label=training_map[correct_label_key];
-        #------------------------------------------------------------  
-        #正例の処理をする
-        for one_instance in instances_in_correct_label:
-            instance_lines_num_map['C']+=1;
-            one_instance_stack=one_instance;
-            one_instance_stack=list(set(one_instance_stack));
-            one_instance_stack.sort();
-            one_instance=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
-            lines_for_correct_instances_stack.append(u'{} {}\n'.format('+1', u' '.join(one_instance)));
-        #負例の処理を行う．重みかアンダーサンプリングかのオプションを設定している
-        #------------------------------------------------------------  
-        #分離平面に重みを置く場合
-        if put_weight_constraint==True and under_sampling==False:
-            for incorrect_label_key in training_map:
-                if not correct_label_key==incorrect_label_key:
-                    instances_in_incorrect_label=training_map[incorrect_label_key];
-                    for one_instance in instances_in_incorrect_label:
-                        #仮にこの変数名にしておく
-                        one_instance_stack=one_instance; 
-                        instance_lines_num_map['N']+=1;
-                        one_instance_stack=list(set(one_instance_stack));
-                        one_instance_stack.sort();
-                        one_instance_stack=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
-                        lines_for_incorrect_instances_stack.append(u'{} {}\n'.format('-1', u' '.join(one_instance_stack)));
-            ratio_c=float(instance_lines_num_map['C']) / (instance_lines_num_map['C']+instance_lines_num_map['N']);
-            ratio_n=float(instance_lines_num_map['N']) / (instance_lines_num_map['C']+instance_lines_num_map['N']);
-            if int(ratio_c*100)==0:
-                weight_parm='-w-1 {} -w1 {} -s {} -q'.format(1, int(ratio_n*100), regularization);
-            else:
-                weight_parm='-w-1 {} -w1 {} -s {} -q'.format(int(ratio_c*100), int(ratio_n*100), regularization);
-        #------------------------------------------------------------  
-        #アンダーサンプリングする場合
-        elif put_weight_constraint==False and under_sampling==True:
-            #各ラベルのインスタンス比率を求める
-            num_of_incorrect_training_instance=0;
-            instance_ratio_map={};
-            #負例の数を計算
-            for label in training_map:
-                if label!=correct_label_key:
-                    num_of_incorrect_training_instance+=len(training_map[label]);
-                    instance_lines_num_map['N']+=len(training_map[label]);
-            #負例のうちの特定のラベルが何行分出力すれば良いのか？を計算する
-            for label in training_map:
-                if label!=correct_label_key:
-                    instance_ratio_map[label]=\
-                            int((float(len(training_map[label]))/num_of_incorrect_training_instance)*instance_lines_num_map['C']);
-            for label in training_map:
-                if label!=correct_label_key:
-                    for instance_index, one_instance in enumerate(training_map[label]):
-                        #あとで変数名を変えておくこと，これだと意味が違う
-                        one_instance_stack=one_instance;
-                        one_instance_stack=list(set(one_instance_stack));
-                        one_instance_stack.sort();
-                        one_instance_stack=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
-                        lines_for_incorrect_instances_stack.append(u'{} {}\n'.format('-1', u' '.join(one_instance_stack)));
-                    #比率にもとづいて計算された行数を追加し終わったら，次のラベルに移る 
-                    if instance_index==instance_ratio_map[label]: continue;
-            weight_parm='-s {} -q'.format(regularization);
-        #------------------------------------------------------------  
-        #両方ともTrueになっているときはエラーをはいて終わる
-        elif put_weight_constraint==True and under_sampling==True:
-            sys.exit('[Warning] Both put_weight_constraint and under_sampling is True');
-        
-        #------------------------------------------------------------  
-        #トレーニング量の調整をしない場合
-        elif put_weight_constraint==False and under_sampling==False:
-            for incorrect_label_key in training_map:
-                if not correct_label_key==incorrect_label_key:
-                    instances_in_incorrect_label=training_map[incorrect_label_key];
-                    for one_instance in instances_in_incorrect_label:
-                        instance_lines_num_map['N']+=1;
-                        one_instance_stack=list(set(one_instance));
-                        one_instance_stack.sort();
-                        one_instance_stack=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
-                        lines_for_incorrect_instances_stack.append(u'{} {}\n'.format('-1', u' '.join(one_instance_stack)));
-            weight_parm='-s {}'.format(regularization);
-        
-        #------------------------------------------------------------  
-        #ファイルに書き出しの処理をおこなう
-        #インドメインでのtrainとtestに分離
-        training_amount=float(args.training_amount);
-        instances_for_train, instances_for_test=split_for_train_test(lines_for_correct_instances_stack,
-                                                                     lines_for_incorrect_instances_stack,
-                                                                     instance_lines_num_map,
-                                                                     training_amount);
-                                                                     
-        #汚いやり方だが，これで訓練とテストを再統合できる
-        #そもそもどうしてこんなことしてるかというと，close_testとかいう勘違い関数があったから
-        #長い目でみると，書き換えが必要
-        instances_line_for_train=instances_for_train+instances_for_test; 
-
-        if mode=='super':
-            #writeout training data to liblinear format file
-            with codecs.open(prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno,
-                             'w','utf-8') as f:
-                f.writelines(instances_line_for_train); 
-           
-            #train model
-            if args.training=='liblinear':
-                tuning_training_liblinear(correct_label_key,weight_parm,exno);
-            elif args.training=='arow':
-                training_file=prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno;
-                dev_file=prefix_path_to_training_f+correct_label_key+'.devdata.'+exno;
-                #devsetの上で評価して最適なハイパーパラメータを返す
-                #tuning model on dev. set
-                best_acc=tuning_arow(correct_label_key,exno,training_file,dev_file,'first');
-                
-                tmp_modelpath='../classifier/arow/'+correct_label_key+'arowmodel1st.'+exno;    
-                #training_file='../classifier/libsvm_format/'+correct_label_key+'.traindata.'+exno;
-                #最適なパラメータでモデルを作成
-                training_arowmodel(best_acc,correct_label_key,tmp_modelpath,training_file,exno);
-            
-            elif args.training=='logistic':
-                training_file=prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno;
-                #TODO devの上でのtuningって必要？ 
-                
-                #re-write -s parameter to -s 0 (regression)
-                weight_parm=re.sub(ur'-s\s\d',u'-s 0',weight_parm);
-                print '-s parameter is re-written to -s 0';
-                #Liblinear logisticのモデルを構築
-                best_acc=0;
-                training_logistic_model(best_acc,weight_parm,correct_label_key,tmp_modelpath_log,training_file,exno);
+        if re.search(ur'NOT_',correct_label_key):
+            continue;
         else:
-            if args.training=='arow':
-                additional_instances_stack=decode_and_add_arow(additional_instances_stack,instances_for_train,
-                                                               instances_for_test,correct_label_key,exno,args);
-           
-            elif args.training==u'logistic':
-                additional_instances_stack=decode_and_add_logistic(additional_instances_stack,instances_for_train,
+            instance_lines_num_map={'C':0, 'N':0};
+            lines_for_correct_instances_stack=[];
+            lines_for_incorrect_instances_stack=[];
+            instances_in_correct_label=training_map[correct_label_key];
+            #------------------------------------------------------------  
+            #正例の処理をする
+            for one_instance in instances_in_correct_label:
+                instance_lines_num_map['C']+=1;
+                one_instance_stack=one_instance;
+                one_instance_stack=list(set(one_instance_stack));
+                one_instance_stack.sort();
+                one_instance=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
+                lines_for_correct_instances_stack.append(u'{} {}\n'.format('+1', u' '.join(one_instance)));
+            #負例の処理を行う．重みかアンダーサンプリングかのオプションを設定している
+            #------------------------------------------------------------  
+            #分離平面に重みを置く場合
+            if put_weight_constraint==True and under_sampling==False:
+                instances_in_incorrect_label=training_map['NOT_'+correct_label_key];
+                for one_instance in instances_in_incorrect_label:
+                    #仮にこの変数名にしておく
+                    one_instance_stack=one_instance; 
+                    instance_lines_num_map['N']+=1;
+                    one_instance_stack=list(set(one_instance_stack));
+                    one_instance_stack.sort();
+                    one_instance_stack=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
+                    lines_for_incorrect_instances_stack.append(u'{} {}\n'.format('-1', u' '.join(one_instance_stack)));
+                ratio_c=float(instance_lines_num_map['C']) / (instance_lines_num_map['C']+instance_lines_num_map['N']);
+                ratio_n=float(instance_lines_num_map['N']) / (instance_lines_num_map['C']+instance_lines_num_map['N']);
+                if int(ratio_c*100)==0:
+                    weight_parm='-w-1 {} -w1 {} -s {} -q'.format(1, int(ratio_n*100), regularization);
+                else:
+                    weight_parm='-w-1 {} -w1 {} -s {} -q'.format(int(ratio_c*100), int(ratio_n*100), regularization);
+            #------------------------------------------------------------  
+            #アンダーサンプリングする場合
+            elif put_weight_constraint==False and under_sampling==True:
+                #どうせ使わないなら消してもいいんじゃない？
+                #各ラベルのインスタンス比率を求める
+                num_of_incorrect_training_instance=0;
+                instance_ratio_map={};
+                #負例の数を計算
+                for label in training_map:
+                    if label!=correct_label_key:
+                        num_of_incorrect_training_instance+=len(training_map[label]);
+                        instance_lines_num_map['N']+=len(training_map[label]);
+                #負例のうちの特定のラベルが何行分出力すれば良いのか？を計算する
+                for label in training_map:
+                    if label!=correct_label_key:
+                        instance_ratio_map[label]=\
+                                int((float(len(training_map[label]))/num_of_incorrect_training_instance)*instance_lines_num_map['C']);
+                for label in training_map:
+                    if label!=correct_label_key:
+                        for instance_index, one_instance in enumerate(training_map[label]):
+                            #あとで変数名を変えておくこと，これだと意味が違う
+                            one_instance_stack=one_instance;
+                            one_instance_stack=list(set(one_instance_stack));
+                            one_instance_stack.sort();
+                            one_instance_stack=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
+                            lines_for_incorrect_instances_stack.append(u'{} {}\n'.format('-1', u' '.join(one_instance_stack)));
+                        #比率にもとづいて計算された行数を追加し終わったら，次のラベルに移る 
+                        if instance_index==instance_ratio_map[label]: continue;
+                weight_parm='-s {} -q'.format(regularization);
+            #------------------------------------------------------------  
+            #両方ともTrueになっているときはエラーをはいて終わる
+            elif put_weight_constraint==True and under_sampling==True:
+                sys.exit('[Warning] Both put_weight_constraint and under_sampling is True');
+            #------------------------------------------------------------  
+            #トレーニング量の調整をしない場合
+            elif put_weight_constraint==False and under_sampling==False:
+                instances_in_incorrect_label=training_map['NOT_'+correct_label_key];
+                for one_instance in instances_in_incorrect_label:
+                    instance_lines_num_map['N']+=1;
+                    one_instance_stack=list(set(one_instance));
+                    one_instance_stack.sort();
+                    one_instance_stack=[str(tuple_item[0])+u':'+str(tuple_item[1]) for tuple_item in one_instance_stack];
+                    lines_for_incorrect_instances_stack.append(u'{} {}\n'.format('-1', u' '.join(one_instance_stack)));
+                weight_parm='-s {}'.format(regularization);
+            #------------------------------------------------------------  
+            #ファイルに書き出しの処理をおこなう
+            #インドメインでのtrainとtestに分離
+            training_amount=float(args.training_amount);
+            instances_for_train, instances_for_test=split_for_train_test(lines_for_correct_instances_stack,
+                                                                         lines_for_incorrect_instances_stack,
+                                                                         instance_lines_num_map,
+                                                                         training_amount);
+                                                                         
+            #汚いやり方だが，これで訓練とテストを再統合できる
+            #そもそもどうしてこんなことしてるかというと，close_testとかいう勘違い関数があったから
+            #長い目でみると，書き換えが必要
+            instances_line_for_train=instances_for_train+instances_for_test; 
+
+            if mode=='super':
+                #writeout training data to liblinear format file
+                with codecs.open(prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno,
+                                 'w','utf-8') as f:
+                    f.writelines(instances_line_for_train); 
+               
+                #train model
+                if args.training=='liblinear':
+                    tuning_training_liblinear(correct_label_key,weight_parm,exno);
+                elif args.training=='arow':
+                    training_file=prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno;
+                    dev_file=prefix_path_to_training_f+correct_label_key+'.devdata.'+exno;
+                    #devsetの上で評価して最適なハイパーパラメータを返す
+                    #tuning model on dev. set
+                    best_acc=tuning_arow(correct_label_key,exno,training_file,dev_file,'first');
+                    
+                    tmp_modelpath='../classifier/arow/'+correct_label_key+'arowmodel1st.'+exno;    
+                    #training_file='../classifier/libsvm_format/'+correct_label_key+'.traindata.'+exno;
+                    #最適なパラメータでモデルを作成
+                    training_arowmodel(best_acc,correct_label_key,tmp_modelpath,training_file,exno);
+                
+                elif args.training=='logistic':
+                    training_file=prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno;
+                    #TODO devの上でのtuningって必要？ 
+                    
+                    #re-write -s parameter to -s 0 (regression)
+                    weight_parm=re.sub(ur'-s\s\d',u'-s 0',weight_parm);
+                    print '-s parameter is re-written to -s 0';
+                    #Liblinear logisticのモデルを構築
+                    best_acc=0;
+                    training_logistic_model(best_acc,weight_parm,correct_label_key,tmp_modelpath_log,training_file,exno);
+            else:
+                if args.training=='arow':
+                    additional_instances_stack=decode_and_add_arow(additional_instances_stack,instances_for_train,
                                                                    instances_for_test,correct_label_key,exno,args);
-    if mode=='semi':             
-        #additional_instances_stackが返されるのはmodeが'semi'の場合のみ
-        return additional_instances_stack;        
-            
+               
+                elif args.training==u'logistic':
+                    additional_instances_stack=decode_and_add_logistic(additional_instances_stack,instances_for_train,
+                                                                       instances_for_test,correct_label_key,exno,args);
+        if mode=='semi':             
+            #additional_instances_stackが返されるのはmodeが'semi'の場合のみ
+            return additional_instances_stack;        
+                
 def conv_to_featurespace_for_dutch_in_arowmode(dutch_training_tree,feature_map_character,feature_map_numeric):
     """
     オランダ語コーパスの一文ごとを素性空間に変換して，返す関数

@@ -202,7 +202,7 @@ def load_tmi(training_map,args):
 
     tmi_f_list=make_filelist(tmi_dir_path);
     #------------------------------------------------------------ 
-    for filepath in tmi_f_list:
+    for fileindex,filepath in enumerate(tmi_f_list):
         with codecs.open(filepath,'r','utf-8') as f:
             file_obj=json.load(f);
         
