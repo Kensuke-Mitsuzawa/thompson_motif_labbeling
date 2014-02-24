@@ -1,6 +1,6 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
-__date__='2014/02/18';
+__date__='2014/02/25';
 
 import re, subprocess, argparse, os, glob, sys, pickle, json, codecs;
 sys.path.append('../get_thompson_motif/');
@@ -24,124 +24,31 @@ def load_files(classifier_dir, suffix=u''):
             classifier_path_list.append(f);
     return classifier_path_list;
 
-def file_loader(file_path, eliminate_stop=True):
-    """
-    Read and construct tokens list from test file.
-    ARGS: file_path(file which you want to classify)
-    """
-    #queryファイルの読み込み
-    line_flag=False;
-    motif_flag=False;
-    motif_stack=[];
-    line_stack=[];
-    with codecs.open(file_path, 'r', 'utf-8') as lines:
-        for line in lines:
-            if line==u'\n':
-                continue;
-            if line==u'#motif\n':
-                motif_flag=True;
-                continue;
-            elif line==u'#text\n':
-                motif_flag=False;
-                line_flag=True;
-                continue;
-            if motif_flag==True and line_flag==False:
-                motif_stack.append(line.strip());
-            if line_flag==True and motif_flag==False:
-                line_stack.append(line.strip());
-    tokens_stack=[tokenize.wordpunct_tokenize(line) for line in line_stack]
-    tokens_stack=[[t.lower() for t in l] for l in tokens_stack]
-    if eliminate_stop==True: 
-        tokens_stack=[[t for t in l if t not in stopwords and t not in symbols] for l in tokens_stack]
-    #配列を二次元から一次元に落とす．ついでにlemmatizeも行う．
-    tokens_stack=[lemmatizer.lemmatize(t) for line in tokens_stack for t in line];
-    return tokens_stack, motif_stack;
-
-def file_loader_dutch(file_path, eliminate_stop=True):
-    filename=os.path.basename(file_path);
-    label=re.sub(ur'(\w_)\d+\.tok\.seg\.en', ur'\1', filename);
-    motif_stack=label.split(u'_');
-    motif_stack=[m for m in motif_stack if not m==u''];
-    file_obj=codecs.open(file_path, 'r', 'utf-8');
-    document=tokenize.wordpunct_tokenize(file_obj.read());
-    file_obj.close();
-    tokens_stack=[t.lower() for t in document];
-    if eliminate_stop==True:
-        tokens_stack=[lemmatizer.lemmatize(t) for t in tokens_stack if lemmatizer.lemmatize(t) not in stopwords and lemmatizer.lemmatize(t) not in symbols];
-    else:
-        tokens_stack=[lemmatizer.lemmatize(t) for t in tokens_stack];        
-    return tokens_stack, motif_stack;
-
-def file_loader_dutch_orig(file_path, eliminate_stop=True):
-    """
-    オランダ語原文のテストファイルを読み込む
-    RETURN1:list tokens_stack [unicode token]
-    RETURN2: list motif_stack [unicode motif_number]
-    """
-    filename=os.path.basename(file_path);
-    motif_stack=filename.split(u'_');
-    motif_stack=[m for m in motif_stack if not m==u''];
-    file_obj=codecs.open(file_path, 'r', 'utf-8');
-    document=tokenize.wordpunct_tokenize(file_obj.read());
-    file_obj.close();
-    tokens_stack=[t.lower() for t in document];
-    return tokens_stack, motif_stack;
-
-def file_loader_sentence(test_file, eliminate_stop=True):
+def file_loader_sentence(test_file):
     """
     文ごとにインスタンスを評価できる形式に返す．戻り値は二次元リスト 
     ARGS: 省略
     RETURN1: list sentences_in_document [list tokens_in_sentence [unicode token]]
     RETURN2: list motif_stack [unicode motif_number]
     """
-    #queryファイルの読み込み
-    line_flag=False;
-    motif_flag=False;
-    motif_stack=[];
-    line_stack=[];
-    with codecs.open(test_file, 'r', 'utf-8') as lines:
-        for line in lines:
-            if line==u'\n':
-                continue;
-            if line==u'#motif\n':
-                motif_flag=True;
-                continue;
-            elif line==u'#text\n':
-                motif_flag=False;
-                line_flag=True;
-                continue;
-            if motif_flag==True and line_flag==False:
-                motif_stack.append(line.strip());
-            if line_flag==True and motif_flag==False:
-                line_stack.append(line.strip());
-    
-    tokens_stack=[tokenize.wordpunct_tokenize(line) for line in line_stack]
-    sentences_in_document=[[t.lower() for t in l] for l in tokens_stack]
-    if eliminate_stop==True: 
-        sentences_in_document=[[t for t in l if t not in stopwords and t not in symbols] for l in sentences_in_document];
+    pass;
 
-    return sentences_in_document, motif_stack;
-
-def file_loader_dutch_sentence(file_path, eliminate_stop=True):
+def file_loader_json_doc(test_file):
     """
-    文ごとにインスタンスを評価できる形式に返す．戻り値は二次元リスト 
-    ARGS: 省略
-    RETURN1: list sentences_in_document [list tokens_in_sentence [unicode token]]
-    RETURN2: list motif_stack [unicode motif_number]
+    jsonファイルからデータを読み込む
+    インスタンスの生成単位は，「文書」
+    RETURN1: list motif_stack [unicode motif_label]
+    RETURN2: list tokens_stack [unicode token]
     """
-    filename=os.path.basename(file_path);
-    label=re.sub(ur'(\w_)\d+\.tok\.seg\.en', ur'\1', filename);
-    motif_stack=label.split(u'_');
-    motif_stack=[m for m in motif_stack if not m==u''];
-    file_obj=codecs.open(file_path, 'r', 'utf-8');
-    sentences_in_document=(file_obj.read()).split(u'\n');
-    tokens_sentences=[tokenize.wordpunct_tokenize(sentence) for sentence in sentences_in_document];
-    tokens_sentences=[[t.lower() for t in sentence] for sentence in tokens_sentences];
-    file_obj.close();
-    if eliminate_stop==True:
-        tokens_sentences=[[t for t in sentence if lemmatizer.lemmatize(t) not in stopwords and lemmatizer.lemmatize(t) not in symbols] for sentence in tokens_sentences];
+    with codecs.open(test_file,'r','utf-8') as json_content:
+        test_file_map=json.load(json_content);
     
-    return tokens_sentences, motif_stack;
+    tokens_stack_list=test_file_map['doc_str'];
+    motif_stack=test_file_map['labels'];
+
+    tokens_stack=[t for l in tokens_stack_list for t in l];    
+
+    return motif_stack,tokens_stack;
 
 def unify_stack(tokens_stack, motif_stack):
     return (motif_stack, tokens_stack);
@@ -372,7 +279,7 @@ def calc_p_r_f_old(num_docs_having_motif, result_map, motif_stack, num_of_correc
                 num_of_correct_decision[result_label]+=1;
             else:
                 num_of_correct_decision[result_label]=1;
-
+    """
     if 1 in result_map.values():
         precision=float(gold_cap_result) / len([label for label in result_map.values() if label==1]);
     else:
@@ -387,8 +294,9 @@ def calc_p_r_f_old(num_docs_having_motif, result_map, motif_stack, num_of_correc
     print 'RESULT\nresult of classifiers:{}\ngold:{}\ncorrect estimation:{}\n'.format(result_map,
                                                                                       gold_map,
                                                                                       list_gold_cap_result);
-    
-    return num_docs_having_motif,num_of_correct_decision, precision_sum, recall_sum, F_sum, gold_map;                                                                                      
+    """ 
+    return gold_map;
+
 def get_the_num_of_1_classifier(result_map):
     """
     1を返す分類器の数を数える
@@ -473,17 +381,12 @@ def multipule_eval_for_liblinear(test_corpus_dir, feature_map_character, feature
     for test_file in load_files(test_corpus_dir):
     #============================================================    
         try:
-            with codecs.open(test_file,'r','utf-8') as json_content:
-                test_file_map=json.load(json_content);
-            
-            tokens_stack_list=test_file_map['doc_str'];
-            motif_stack=test_file_map['labels'];
+            motif_stack,tokens_stack=file_loader_json_doc(test_file);
 
-            tokens_stack=[t for l in tokens_stack_list for t in l]; 
             out_libsvm_format(tokens_stack, feature_map_character, feature_map_numeric, feature_show, tfidf_flag);
             result_map=call_liblinear.eval_with_liblinear(exno);
             
-            num_docs_having_motif,num_of_correct_decision, precision_sum, recall_sum, F_sum, gold_map=calc_p_r_f_old(num_docs_having_motif,result_map,motif_stack,num_of_correct_decision,precision_sum,recall_sum,F_sum);
+            gold_map=calc_p_r_f_old(num_docs_having_motif,result_map,motif_stack,num_of_correct_decision,precision_sum,recall_sum,F_sum);
 
             h_loss_sum=calc_h_loss(result_map, gold_map, h_loss_sum);
             subset_acc_sum=calc_subset_acc(result_map, gold_map, subset_acc_sum);
@@ -822,7 +725,7 @@ def main(level, single_file_eval, input_path, stop, arow, liblinear, feature_sho
         test_corpus_dir='../test_resource/dfd/';
     #TODO dutch_folktale_corpus_orig用のjsonを作って配置しておくこと
     elif args.dutch_orig_test==True:
-        test_corpus_dir='../dutch_folktale_corpus/given_script/top_dutch/top_document_test/';
+        test_corpus_dir='../test_resource/dfd_orig/';
     if single_file_eval==True:
         test_corpus_dir=input_path;
     

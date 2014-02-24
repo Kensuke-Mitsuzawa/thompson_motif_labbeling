@@ -1,6 +1,6 @@
 *.pyc
 *.out
-
+test.data
 .spyderworkspace
 .DS_Store
 big_document/

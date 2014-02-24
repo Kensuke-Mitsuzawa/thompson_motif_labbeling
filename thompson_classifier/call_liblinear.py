@@ -6,7 +6,7 @@ import file_decoder;
 def eval_with_liblinear(exno):
     test_y, test_x=svm_read_problem('./test.data');
     result_map={};
-    libsvm_format_dir='../get_thompson_motif/classifier/liblinear/';
+    libsvm_format_dir='../classifier/liblinear/';
     for libsvm_format in file_decoder.load_files(libsvm_format_dir, suffix=u'.model.'+exno):
         filename=os.path.basename(libsvm_format)[0];
         model=load_model(libsvm_format);
