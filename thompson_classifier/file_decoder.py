@@ -351,10 +351,12 @@ def calc_p_r_f(result_map, motif_stack, ex_p_sum, ex_r_sum, ex_f_sum, acc_sum):
     
     try:
         ex_p_sum+=float(num_of_cap)/len_z_i;
+        print 'P',float(num_of_cap)/len_z_i
     except ZeroDivisionError:
         ex_p_sum+=0;
     try:
         ex_f_sum+=(2*float(num_of_cap))/(len_z_i+len(motif_stack));
+        print 'F',(2*float(num_of_cap))/(len_z_i+len(motif_stack));
     except ZeroDivisionError:
         ex_f_sum+=0;
     try:
@@ -363,6 +365,7 @@ def calc_p_r_f(result_map, motif_stack, ex_p_sum, ex_r_sum, ex_f_sum, acc_sum):
         acc_sum+=0;
     try:
         ex_r_sum+=float(num_of_cap)/len(motif_stack);
+        print 'R',float(num_of_cap)/len(motif_stack);
     except ZeroDivisionError:
         ex_r_sum+=0;
 
@@ -391,6 +394,12 @@ def multipule_eval_for_liblinear(test_corpus_dir, feature_map_character, feature
             h_loss_sum=calc_h_loss(result_map, gold_map, h_loss_sum);
             subset_acc_sum=calc_subset_acc(result_map, gold_map, subset_acc_sum);
             ex_p_sum, ex_r_sum, ex_f_sum, acc_sum=calc_p_r_f(result_map, gold_map, ex_p_sum, ex_r_sum, ex_f_sum, acc_sum);
+            
+            print 'Predict Result',result_map
+            print 'Gold',gold_map
+            print 'Union',[label for label,value in result_map.items() if label in gold_map and value==1]
+            print u'-'*40
+
             classifier_return_1_sum+=get_the_num_of_1_classifier(result_map);
         #------------------------------------------------------------   
         except ValueError:
@@ -404,18 +413,9 @@ def multipule_eval_for_liblinear(test_corpus_dir, feature_map_character, feature
     ex_f=ex_f_sum/num_of_files;
     acc=acc_sum/num_of_files;
     classifier_return_1=float(classifier_return_1_sum)/num_of_files;
-    precision_ave=precision_sum/len(load_files(test_corpus_dir));
-    recall_ave=recall_sum/len(load_files(test_corpus_dir));
-    F_ave=F_sum/len(load_files(test_corpus_dir));
    
     print '-'*30;
     print 'RESULT for {} files classification'.format(len(load_files(test_corpus_dir)));
-    """
-    print 'Average_precision:{}\nAverage_recall:{}\nAverage_F:{}'.format(precision_ave,
-                                                                         recall_ave,
-                                                                         F_ave);
-    """
-
     print 'Hamming Loss:{}'.format(h_loss);
     print 'Subset Accuracy(classification accuracy):{}'.format(subset_acc);
     print 'example-based precision:{} example-based recall:{} example-based F:{} accuracy:{}'.format(ex_p, ex_r, ex_f, acc)

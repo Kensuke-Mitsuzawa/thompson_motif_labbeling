@@ -1,8 +1,8 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
-__date__='2014/2/24';
+__date__='2014/2/28';
 
-import argparse, codecs, os, glob, json, sys;
+import re, argparse, codecs, os, glob, json, sys;
 sys.path.append('../');
 import return_range, mulan_module, liblinear_module, bigdoc_module;
 import feature_create;
@@ -28,6 +28,7 @@ alphabetTable=[unichr(i) for i in xrange(65, 91)if chr(i) not in [u'I',u'O',u'Y'
 dfd_dir_path='../training_resource/dfd/';
 tmi_dir_path='../training_resource/tmi/';
 dfd_orig_path='../training_resource/dfd_orig/';
+additional_resource_list=['../../american_indian_corpus/tagged_corpus/'];
 #------------------------------------------------------------
 
 def make_filelist(dir_path):
@@ -183,49 +184,7 @@ def load_dfd(training_map,args):
             training_map[label]=dfd_training_map[label];
     #------------------------------------------------------------ 
     return training_map;
-    
-def load_tmi(training_map,args):
-    """
-    Load TMI training data from specified json dir path.
-    TMI dir path is specified by tmi_dir_path.
-    RETURN:map training_map {unicode label: list training_sets_in_label[list training_data[unicode token]]}
-    """
-    tmi_training_map={};
-    #------------------------------------------------------------ 
-    if level==1:
-        for alphabet in alphabetTable:
-            tmi_training_map[alphabet]=[];
-            tmi_training_map[u'NOT_'+alphabet]=[];
-    elif level==2:
-        sys.exit('under construction');
-    #------------------------------------------------------------ 
 
-    tmi_f_list=make_filelist(tmi_dir_path);
-    #------------------------------------------------------------ 
-    for fileindex,filepath in enumerate(tmi_f_list):
-        with codecs.open(filepath,'r','utf-8') as f:
-            file_obj=json.load(f);
-        
-        alphabet_label_list=file_obj['labels'];
-        not_label_list=[l for l in alphabetTable if l not in alphabet_label_list];
-        doc=file_obj['doc_str'];
-
-        tokens_set_stack=cleanup_class_stack(doc,args);
-        
-        for target_label in alphabet_label_list: 
-            tmi_training_map[target_label]+=(tokens_set_stack);
-        for not_target_label in not_label_list:
-            tmi_training_map[not_target_label]+=(tokens_set_stack);
-        
-        if args.dev==True and fileindex==dev_limit:
-            break;
-    #------------------------------------------------------------ 
-    for key, value in tmi_training_map.items():
-        training_map[key]=value;
-    #------------------------------------------------------------ 
-
-    return training_map;
-        
 def load_dfd_orig(training_map,args):
     """
     RETURN:map training_map {unicode label: list training_sets_in_label[list training_data[unicode token]]}
@@ -269,6 +228,103 @@ def load_dfd_orig(training_map,args):
 
     return training_map;
 
+def load_tmi(training_map,args):
+    """
+    Load TMI training data from specified json dir path.
+    TMI dir path is specified by tmi_dir_path.
+    RETURN:map training_map {unicode label: list training_sets_in_label[list training_data[unicode token]]}
+    """
+    tmi_training_map={};
+    #------------------------------------------------------------ 
+    if level==1:
+        for alphabet in alphabetTable:
+            tmi_training_map[alphabet]=[];
+            tmi_training_map[u'NOT_'+alphabet]=[];
+    elif level==2:
+        sys.exit('under construction');
+    #------------------------------------------------------------ 
+    tmi_f_list=make_filelist(tmi_dir_path);
+    #------------------------------------------------------------ 
+    for fileindex,filepath in enumerate(tmi_f_list):
+        with codecs.open(filepath,'r','utf-8') as f:
+            file_obj=json.load(f);
+        
+        alphabet_label_list=file_obj['labels'];
+        not_label_list=[l for l in alphabetTable if l not in alphabet_label_list];
+        doc=file_obj['doc_str'];
+
+        if args.big_TMI==False:
+            tokens_set_stack=cleanup_class_stack(doc,args);
+        elif args.big_TMI==True:
+            tokens_set_stack=cleanup_class_stack(doc,args);
+            tokens_set_stack=[t for one_definition in tokens_set_stack for t in one_definition];
+
+        for target_label in alphabet_label_list: 
+            tmi_training_map[target_label]+=(tokens_set_stack);
+        for not_target_label in not_label_list:
+            tmi_training_map['NOT_'+not_target_label]+=(tokens_set_stack);
+        
+        if args.dev==True and fileindex==dev_limit:
+            break;
+    #------------------------------------------------------------ 
+    for key, value in tmi_training_map.items():
+        training_map[key]+=value;
+    #------------------------------------------------------------ 
+
+    return training_map;
+
+def label_converter(label):
+    #if level==1:
+    label=label.strip();
+    target_label=label[0]
+    return target_label; 
+
+def load_resource_general_doc_based(dataset_dirpath,training_map,args):
+    """
+    Load dataset from specified preprocessed json file.
+    file path is specified by additional_resource_list 
+    RETURN: map training_map {unicode label: list document[list [unicode token]]}
+    """
+    additional_training_map={};
+    #------------------------------------------------------------ 
+    if level==1:
+        for alphabet in alphabetTable:
+            additional_training_map[alphabet]=[];
+            additional_training_map[u'NOT_'+alphabet]=[];
+    elif level==2:
+        sys.eixt('not implemented yet');
+    #------------------------------------------------------------ 
+    f_list=make_filelist(dataset_dirpath);
+    #------------------------------------------------------------ 
+    for fileindex,filepath in enumerate(f_list):
+        with codecs.open(filepath,'r','utf-8') as f:
+            file_obj=json.load(f);
+        
+        alphabet_label_list=file_obj['labels'];
+        alphabet_label_list=[label_converter(label) for label in alphabet_label_list];
+        print filepath
+        print alphabet_label_list
+        doc=file_obj['doc_str'];
+
+        if args.ins_range=='document':
+            additional_training_map=generate_document_instances(doc,filepath,alphabetTable,alphabet_label_list,additional_training_map,args);
+        """
+        elif args.ins_range=='sentence':
+            #arowを用いた半教師あり学習のために文ごとの事例作成を行う
+            additional_training_map=generate_sentence_instances(doc,filepath,alphabetTable,alphabet_label_list,dfd_training_map,args);                
+            """
+        if args.dev==True and fileindex==dev_limit:
+            break;
+    #------------------------------------------------------------ 
+    for label in additional_training_map:
+        if label in training_map:
+            training_map[label]+=additional_training_map[label];
+        else:
+            training_map[label]=additional_training_map[label];
+    #------------------------------------------------------------ 
+    
+    return training_map;
+
 def construct_classifier_for_1st_layer(all_thompson_tree,args):
     """
     document based classifier
@@ -283,11 +339,8 @@ def construct_classifier_for_1st_layer(all_thompson_tree,args):
     feature_map_character={};
     #============================================================ 
     #追加のデータ・セットがあった場合にこのコードを使うようにするうまい仕組みを考えないとね
-    """    
-    for data_set in data_set_list:
-        pass;
-        #label treeの下に登録を繰り返す
-        """
+    for dataset_dirpath in additional_resource_list:
+        training_map=load_resource_general_doc_based(dataset_dirpath,training_map,args);
     #============================================================ 
     if args.dutch==True:
         training_map=load_dfd(training_map,args);
@@ -503,22 +556,31 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description='');
     parser.add_argument('-level', '--level',
                         help='level which you want to construct big doc.', default=1)
+    #----------------------------------------------------------- 
     parser.add_argument('-mode', '--mode',
                         help='classification problem(class) or big-document(big)', required=True);
     parser.add_argument('-stop',
                         help='If added, stop words are eliminated from training file', action='store_true');
+    #----------------------------------------------------------- 
     parser.add_argument('-dutch', 
                         help='If added, document from dutch folktale database is added to training corpus', 
                         action='store_true');
     parser.add_argument('-dutch_original', 
                         help='If added, document from original dutch document is added to training corpus', 
                         action='store_true');
-    parser.add_argument('-ins_range',
-                        help='select a range of one instance. "document" or "sentence"',
-                        default='document');
+    parser.add_argument('-AIC',
+                        help='If added, American Indian folktales corpus is used as training',
+                        action='store_true');
     parser.add_argument('-thompson', 
                         help='If added, outline from thompson tree is added to training corpus', 
                         action='store_true');
+    parser.add_argument('-big_TMI',
+                        help='if added TMI definition sentences are concatenated into big document',
+                        action='store_true');
+    #----------------------------------------------------------- 
+    parser.add_argument('-ins_range',
+                        help='select a range of one instance. "document" or "sentence"',
+                        default='document');
     parser.add_argument('-tfidf',
                         help='If added, tfidf is used for feature scoring instead of unigram feature', 
                         action='store_true');

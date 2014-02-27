@@ -1,6 +1,7 @@
 *.pyc
 *.out
-test.data
+
+thompson_classifier/test.data
 .spyderworkspace
 .DS_Store
 big_document/
