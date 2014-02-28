@@ -1,7 +1,7 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import json,re,codecs,os,glob;
+import sys,json,re,codecs,os,glob;
 from nltk.corpus import stopwords;
 from nltk import stem;
 from nltk import tokenize; 
@@ -13,16 +13,17 @@ stopwords = stopwords.words('english');
 symbols = ["'", '"', '`', '.', ',', '-', '!', '?', ':', ';', '(', ')'];
 
 #specify raw document dirpath here
-raw_doc_path='../../dutch_folktale_corpus/dutch_folktale_database_translated_kevin_system/translated_test/'
+raw_doc_path='../../dutch_folktale_corpus/dutch_folktale_database_translated_kevin_system/translated_train/'
 #specify raw document dirpath here
 raw_doc_path_2='../parsed_json/'
 #specify IFN raw document dirpath here
-raw_doc_path_ifn='../../corpus_dir/translated_google/'
+#raw_doc_path_ifn='../../corpus_dir/translated_google/'
+raw_doc_path_ifn='../../corpus_dir/translated_google_new_format/'
 #specify DFD original document dirpath here
 raw_doc_path_dfd_orig='../../dutch_folktale_corpus/given_script/top_dutch/top_document_test/';
 
 #specify json document dirpath here
-json_doc_path='../test_resource/dfd'
+json_doc_path='../training_resource/dfd/'
 #specify json document dirpath here
 json_doc_path_2='../training_resource/tmi/'
 #specify json document of IFN dirpath here
@@ -40,17 +41,42 @@ def make_filelist(dir_path):
 def generate_sentence_instances(file_obj):
     """
     文単位で訓練事例を作成する
-    RETURN list document [list sentence [unicode token] ]
+    RETURN list document [tuple sentence_and_label (list sentence [unicode token], label unicode)]
     """
     document=[];
     sentences=file_obj.readlines();
     file_obj.close();
     for s in sentences:
         tokens_sentence=tokenize.wordpunct_tokenize(s);
-        document.append(tokens_sentence);        
+        document.append( (tokens_sentence,None) ); 
     
     return document;    
-    
+
+def json_converter_1(raw_doc_list):
+    """
+    ファイル名がラベルになっている場合のみ有効
+    ファイル名の形式 ラベル_ラベル2_ラベル3
+    This function converts raw document into json format.
+    The File format must be underbar concatenated TMIlabels like TMIlabel1_TMIlabel2_TMIlabel3_...
+    RETURN None
+    OutJsonFormat map json_f_str {'labels':list [unicode label],'doc_str':list document[list sentence[unicode token]]} 
+    """
+    for f in raw_doc_list:
+        json_f_str={}; 
+        labels=[];        
+        filename=os.path.basename(f);
+        [labels.append(l) for l in filename.split('_') if re.search(r'[A-Z]',l)];
+
+        f_obj=codecs.open(f,'r','utf-8');
+        doc_str=generate_sentence_instances(f_obj);        
+
+        json_f_str['labels']=labels;
+        json_f_str['doc_str']=doc_str;
+
+        with codecs.open(json_doc_path+filename,'w','utf-8') as f:
+            json.dump(json_f_str,f,ensure_ascii='False',indent=4);
+
+'''
 def json_converter_1(raw_doc_list):
     """
     ファイル名がラベルになっている場合のみ有効
@@ -74,7 +100,8 @@ def json_converter_1(raw_doc_list):
 
         with codecs.open(json_doc_path+filename,'w','utf-8') as f:
             json.dump(json_f_str,f,ensure_ascii='False',indent=4);
-            
+'''
+
 def json_converter_2():
     """
     json_converter_2はTMI tree用    
@@ -90,7 +117,7 @@ def json_converter_2():
         for label_description_tuple in class_training_stack:
             description=label_description_tuple[1];
             s=tokenize.wordpunct_tokenize(description);
-            document.append(s);
+            document.append((s,parent_node));
         
         json_f_str['labels']=[parent_node];
         json_f_str['doc_str']=document;
@@ -133,13 +160,16 @@ def json_converter_ifn_body(file_path):
     #queryファイルの読み込み
     line_flag=False;
     motif_flag=False;
+    attach_flag=False;
     motif_stack=[];
     line_stack=[];
     with codecs.open(file_path, 'r', 'utf-8') as lines:
-        for line in lines:
+        for line_no,line in enumerate(lines):
+            line_number=line_no+1;
+            
             if line==u'\n':
                 continue;
-            if line==u'#motif\n':
+            if re.search(ur'#motif',line):#line==u'#motif\n':
                 motif_flag=True;
                 continue;
             elif line==u'#text\n':
@@ -147,18 +177,38 @@ def json_converter_ifn_body(file_path):
                 line_flag=True;
                 continue;
             if motif_flag==True and line_flag==False:
-                motif_stack.append(line.strip());
+                #get TMI label and its range tuple (TMI label, start_position, end_position)
+                label, start_position, end_position=line.strip().split(u'\t') 
+                label_range_tuple=(label,int(start_position),int(end_position))
+                motif_stack.append(label_range_tuple);
+
             if line_flag==True and motif_flag==False:
-                line_stack.append(line.strip());
-    
-    tokens_stack=[tokenize.wordpunct_tokenize(line) for line in line_stack]
-    tokens_stack=[[t.lower() for t in l] for l in tokens_stack]
+                for label_range_tuple in motif_stack:
+                    if line_number==label_range_tuple[1]:
+                        label=label_range_tuple[0];
+                        attach_flag=True;
+
+                    if line_number==label_range_tuple[2]:
+                        label=None;
+                        attach_flag=False;
+               
+                tokens_in_line=tokenize.wordpunct_tokenize(line.strip());
+                tokens_in_line=[t.lower() for t in tokens_in_line];
+                if attach_flag==True:
+                    sentence_label_tuple=(line.strip(), label);
+                    line_stack.append(sentence_label_tuple);
+                else:
+                    sentence_label_tuple=(line.strip(),None);
+                    line_stack.append(sentence_label_tuple)
+
+    #tokens_stack=[tokenize.wordpunct_tokenize(line) for line in line_stack]
+    #tokens_stack=[[t.lower() for t in l] for l in tokens_stack]
     #ここではstopwordsの除去はしない
     #if eliminate_stop==True: 
     #    tokens_stack=[[t for t in l if t not in stopwords and t not in symbols] for l in tokens_stack]
     #配列を二次元から一次元に落とす．ついでにlemmatizeも行う．
     #tokens_stack=[lemmatizer.lemmatize(t) for line in tokens_stack for t in line];
-    return tokens_stack, motif_stack;
+    return line_stack,motif_stack;
 
 def json_converter_ifn_head():
     file_list=make_filelist(raw_doc_path_ifn);
@@ -167,14 +217,16 @@ def json_converter_ifn_head():
         
         json_f_str={};
         tokens_stack,motif_stack=json_converter_ifn_body(f_path)
-             
-        json_f_str['labels']=motif_stack;
+        motifs_in_doc=[each_tuple[0] for each_tuple in motif_stack];
+        
+        json_f_str['labels']=motifs_in_doc;
         json_f_str['doc_str']=tokens_stack;
 
+        
         with codecs.open(json_doc_path_ifn+filename,'w','utf-8') as f:
             json.dump(json_f_str,f,ensure_ascii='False',indent=4);
 
-def tokenize(filepath):
+def def_tokenize(filepath):
     file_obj=codecs.open(filepath,'r','utf-8'); 
     document_unicode=file_obj.read(); 
     tokenized_document=nltk.tokenize.wordpunct_tokenize(document_unicode);
@@ -188,14 +240,14 @@ def json_converter_dfd_orig():
         #ラベルの分解処理
         label_list=(os.path.basename(filepath)).split('_')[:-1];
         #tokenized_documentはリスト型
-        tokenized_document=tokenize(filepath);
+        tokenized_document=def_tokenize(filepath);
         #オランダ語はわからんが，一応すべて小文字化はしておく
+        #さらにモチーフラベルのタプルを作成(全部Noneだけど)
         tokenized_document=[t.lower() for t in tokenized_document];
         
         dfd_orig_one_doc_map['labels']=label_list;
-        dfd_orig_one_doc_map['doc_str']=tokenized_document;
+        dfd_orig_one_doc_map['doc_str']=(tokenized_document,None);
         
-        print filepath
         with codecs.open(json_doc_path_dfd_orig+os.path.basename(filepath),'w','utf-8') as json_content:
             json.dump(dfd_orig_one_doc_map,json_content,ensure_ascii=False,indent=4);
 
