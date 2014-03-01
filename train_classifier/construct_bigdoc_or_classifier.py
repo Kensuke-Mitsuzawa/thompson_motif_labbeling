@@ -1,34 +1,20 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
-__date__='2014/2/28';
+__date__='2014/3/1';
 
-import re, argparse, codecs, os, glob, json, sys;
+import argparse,codecs,os,glob,json,sys;
 sys.path.append('../');
+import config as cfg;
 import return_range, mulan_module, liblinear_module, bigdoc_module;
 import feature_create;
-import original_dutch_module;
+import file_load_module;
 from nltk.corpus import stopwords;
-from nltk import stem;
 from nltk import tokenize; 
 from nltk.stem import SnowballStemmer;
 stemmer=SnowballStemmer("dutch");
 #------------------------------------------------------------
-lemmatizer = stem.WordNetLemmatizer();
-stopwords = stopwords.words('english');
-symbols = ["'", '"', '`', '.', ',', '-', '!', '?', ':', ';', '(', ')'];
-#option parameter
-level=1;
-dev_limit=1;
 #Idea number of TFIDF
 tfidf_idea=2;        
-#------------------------------------------------------------
-#Initialize dfd_training_map with 23 labels
-alphabetTable=[unichr(i) for i in xrange(65, 91)if chr(i) not in [u'I',u'O',u'Y']]
-#------------------------------------------------------------
-dfd_dir_path='../training_resource/dfd/';
-tmi_dir_path='../training_resource/tmi/';
-dfd_orig_path='../training_resource/dfd_orig/';
-additional_resource_list=['../../american_indian_corpus/tagged_corpus/'];
 #------------------------------------------------------------
 
 def make_filelist(dir_path):
@@ -37,22 +23,6 @@ def make_filelist(dir_path):
         for f in glob.glob(os.path.join(root, '*')):
             file_list.append(f);
     return file_list;
-
-def cleanup_class_stack(doc,args):
-    """
-    preprocessing for TMI sentences
-    RETURN:list tokens_set_stack [list sentence [unicode token]]
-    """
-    tokens_set_stack=[];    
-    for sent in doc:
-        #tokens=tokenize.wordpunct_tokenize(cleaned_sentence);
-        tokens_s=[lemmatizer.lemmatize(t.lower()) for t in sent]
-        if args.stop==True:
-            tokens_set_stack.append([t for t in tokens_s if t not in stopwords and t not in symbols]);
-        else:
-            tokens_set_stack.append(tokens_s);
-
-    return tokens_set_stack;
 
 def make_feature_set(feature_map, tokens_set_stack,args):
     """
@@ -66,7 +36,7 @@ def make_feature_set(feature_map, tokens_set_stack,args):
             #ドメインごとの素性を登録
             #character_feature=u'{}_unigram'.format(token);
             character_feature=u'{}_BOW'.format(token);            
-            if stop==True and token not in stopwords and token not in symbols:
+            if stop==True and token not in cfg.stopwords and token not in cfg.symbols:
                 if token in feature_map and character_feature not in feature_map[token]:
                     feature_map[token].append(character_feature);
                 elif token in feature_map and character_feature in feature_map[token]:
@@ -92,239 +62,6 @@ def make_numerical_feature(feature_map_character):
             feature_num_max+=1;
     return feature_map_numeric;
 
-def generate_document_instances(doc,filepath,alphabetTable,alphabet_label_list,dutch_training_map,args):
-    """
-    文書単位で訓練事例を作成する
-    RETURN:map dutch_training_map {unicode label:list [document [unicode token]]}
-    """
-    #convert 2-dim list to 1-dim list
-    tokens_in_doc=[t for s in doc for t in s];
-    #lemmatize all tokens
-    lemmatized_tokens_in_label=[lemmatizer.lemmatize(t.lower()) for t in tokens_in_doc];
-    #NOT label list
-    not_label_list=[a for a in alphabetTable if a not in alphabet_label_list];
-   
-    if args.stop==True:
-        lemmatized_tokens_in_label=[t for t in lemmatized_tokens_in_label if t not in stopwords and t not in symbols];
-    if level==1:
-        for target_label in alphabet_label_list:
-            dutch_training_map[target_label].append(lemmatized_tokens_in_label); 
-        for not_target_label in not_label_list:
-            dutch_training_map['NOT_'+not_target_label].append(lemmatized_tokens_in_label);
-           
-    elif level==2:
-        alphabet_label=alphabet_label.upper();
-        if alphabet_label in dutch_training_map:
-            dutch_training_map[alphabet_label].append(lemmatized_tokens_in_label);
-        else:
-            dutch_training_map[alphabet_label]=[lemmatized_tokens_in_label];
-    return dutch_training_map;
-
-def generate_sentence_instances(doc,filepath,alphabetTable,alphabet_label_list,dutch_training_map,args):
-    """
-    文単位で訓練事例を作成する
-    RETURN dutch_training_map: map {unicode key : list [ [ unicode token ] ] }
-    """
-    #NOT label list
-    not_label_list=[a for a in alphabetTable if a not in alphabet_label_list];
-    
-    for tokens_sentence in doc:
-        if args.stop==True:
-            tokens_sentence=[t for t in tokens_sentence if t not in symbols and t not in stopwords];
-        #lemmatize all tokens
-        tokens_sentence=[lemmatizer.lemmatize(t.lower()) for t in tokens_sentence];
-       
-        if not tokens_sentence==[]:
-            for alphabet_label in alphabet_label_list:
-                dutch_training_map[alphabet_label].append(tokens_sentence);
-            for not_target_label in not_label_list:
-                dutch_training_map['NOT_'+not_target_label].append(tokens_sentence);
-    return dutch_training_map;
-    
-def load_dfd(training_map,args):
-    """
-    Load DFD dataset from preprocessed json file.
-    DFD file path is specified by dfd_dir_path
-    RETURN: map training_map {unicode label: list document[list [unicode token]]}
-    """
-    dfd_training_map={};
-    #------------------------------------------------------------ 
-    if level==1:
-        #Initialize dfd_training_map with 23 labels
-        #alphabetTable=[unichr(i) for i in xrange(65, 91)if chr(i) not in [u'I',u'O',u'Y']]
-        for alphabet in alphabetTable:
-            dfd_training_map[alphabet]=[];
-            dfd_training_map[u'NOT_'+alphabet]=[];
-    elif level==2:
-        sys.eixt('not implemented yet');
-    #------------------------------------------------------------ 
-
-    dfd_f_list=make_filelist(dfd_dir_path);
-    #------------------------------------------------------------ 
-    for fileindex,filepath in enumerate(dfd_f_list):
-        with codecs.open(filepath,'r','utf-8') as f:
-            file_obj=json.load(f);
-            
-        alphabet_label_list=file_obj['labels'];
-        doc=file_obj['doc_str'];
-
-        if args.ins_range=='document':
-            dfd_training_map=generate_document_instances(doc,filepath,alphabetTable,alphabet_label_list,dfd_training_map,args);
-        elif args.ins_range=='sentence':
-            #arowを用いた半教師あり学習のために文ごとの事例作成を行う
-            dfd_training_map=generate_sentence_instances(doc,filepath,alphabetTable,alphabet_label_list,dfd_training_map,args);                
-
-        if args.dev==True and fileindex==dev_limit:
-            break;
-    #------------------------------------------------------------ 
-    for label in dfd_training_map:
-        if label in training_map:
-            training_map[label]+=dfd_training_map[label];
-        else:
-            training_map[label]=dfd_training_map[label];
-    #------------------------------------------------------------ 
-    return training_map;
-
-def load_dfd_orig(training_map,args):
-    """
-    RETURN:map training_map {unicode label: list training_sets_in_label[list training_data[unicode token]]}
-    """ 
-    dfd_orig_training_map={};
-    #------------------------------------------------------------ 
-    if level==1:
-        for alphabet in alphabetTable:
-            dfd_orig_training_map[alphabet]=[];
-            dfd_orig_training_map[u'NOT_'+alphabet]=[];
-    elif level==2:
-        sys.exit('under construction');
-    #------------------------------------------------------------ 
-    
-    dfd_f_list=make_filelist(dfd_orig_path);
-    #------------------------------------------------------------ 
-    for fileindex,filepath in enumerate(dfd_f_list):
-        if fileindex % 100==0:
-            print 'Done {} th file.Total {}'.format(fileindex,len(dfd_f_list))
-
-        with codecs.open(filepath,'r','utf-8') as f:
-            file_obj=json.load(f);
-        
-        alphabet_label_list=file_obj['labels'];
-        not_label_list=[l for l in alphabetTable if l not in alphabet_label_list];
-        doc=file_obj['doc_str'];
-        
-        #convert from 2-dim list to 1-dim list  
-        tokens_in_doc=[t for sent in doc for t in sent];
-        #dutch stemming
-        tokens_in_doc=[stemmer.stem(t) for t in tokens_in_doc]; 
-        
-        for target_label in alphabet_label_list:
-            dfd_orig_training_map[target_label].append(tokens_in_doc);
-        for not_label in not_label_list:
-            dfd_orig_training_map['NOT_'+not_label].append(tokens_in_doc);
-    #------------------------------------------------------------ 
-    for label,content in dfd_orig_training_map.items():
-        training_map[label]=content; 
-    #------------------------------------------------------------ 
-
-    return training_map;
-
-def load_tmi(training_map,args):
-    """
-    Load TMI training data from specified json dir path.
-    TMI dir path is specified by tmi_dir_path.
-    RETURN:map training_map {unicode label: list training_sets_in_label[list training_data[unicode token]]}
-    """
-    tmi_training_map={};
-    #------------------------------------------------------------ 
-    if level==1:
-        for alphabet in alphabetTable:
-            tmi_training_map[alphabet]=[];
-            tmi_training_map[u'NOT_'+alphabet]=[];
-    elif level==2:
-        sys.exit('under construction');
-    #------------------------------------------------------------ 
-    tmi_f_list=make_filelist(tmi_dir_path);
-    #------------------------------------------------------------ 
-    for fileindex,filepath in enumerate(tmi_f_list):
-        with codecs.open(filepath,'r','utf-8') as f:
-            file_obj=json.load(f);
-        
-        alphabet_label_list=file_obj['labels'];
-        not_label_list=[l for l in alphabetTable if l not in alphabet_label_list];
-        doc=file_obj['doc_str'];
-
-        if args.big_TMI==False:
-            tokens_set_stack=cleanup_class_stack(doc,args);
-        elif args.big_TMI==True:
-            tokens_set_stack=cleanup_class_stack(doc,args);
-            tokens_set_stack=[t for one_definition in tokens_set_stack for t in one_definition];
-
-        for target_label in alphabet_label_list: 
-            tmi_training_map[target_label]+=(tokens_set_stack);
-        for not_target_label in not_label_list:
-            tmi_training_map['NOT_'+not_target_label]+=(tokens_set_stack);
-        
-        if args.dev==True and fileindex==dev_limit:
-            break;
-    #------------------------------------------------------------ 
-    for key, value in tmi_training_map.items():
-        training_map[key]+=value;
-    #------------------------------------------------------------ 
-
-    return training_map;
-
-def label_converter(label):
-    #if level==1:
-    label=label.strip();
-    target_label=label[0]
-    return target_label; 
-
-def load_resource_general_doc_based(dataset_dirpath,training_map,args):
-    """
-    Load dataset from specified preprocessed json file.
-    file path is specified by additional_resource_list 
-    RETURN: map training_map {unicode label: list document[list [unicode token]]}
-    """
-    additional_training_map={};
-    #------------------------------------------------------------ 
-    if level==1:
-        for alphabet in alphabetTable:
-            additional_training_map[alphabet]=[];
-            additional_training_map[u'NOT_'+alphabet]=[];
-    elif level==2:
-        sys.eixt('not implemented yet');
-    #------------------------------------------------------------ 
-    f_list=make_filelist(dataset_dirpath);
-    #------------------------------------------------------------ 
-    for fileindex,filepath in enumerate(f_list):
-        with codecs.open(filepath,'r','utf-8') as f:
-            file_obj=json.load(f);
-        
-        alphabet_label_list=file_obj['labels'];
-        alphabet_label_list=[label_converter(label) for label in alphabet_label_list];
-        print filepath
-        print alphabet_label_list
-        doc=file_obj['doc_str'];
-
-        if args.ins_range=='document':
-            additional_training_map=generate_document_instances(doc,filepath,alphabetTable,alphabet_label_list,additional_training_map,args);
-        """
-        elif args.ins_range=='sentence':
-            #arowを用いた半教師あり学習のために文ごとの事例作成を行う
-            additional_training_map=generate_sentence_instances(doc,filepath,alphabetTable,alphabet_label_list,dfd_training_map,args);                
-            """
-        if args.dev==True and fileindex==dev_limit:
-            break;
-    #------------------------------------------------------------ 
-    for label in additional_training_map:
-        if label in training_map:
-            training_map[label]+=additional_training_map[label];
-        else:
-            training_map[label]=additional_training_map[label];
-    #------------------------------------------------------------ 
-    
-    return training_map;
-
 def construct_classifier_for_1st_layer(all_thompson_tree,args):
     """
     document based classifier
@@ -339,19 +76,19 @@ def construct_classifier_for_1st_layer(all_thompson_tree,args):
     feature_map_character={};
     #============================================================ 
     #追加のデータ・セットがあった場合にこのコードを使うようにするうまい仕組みを考えないとね
-    for dataset_dirpath in additional_resource_list:
-        training_map=load_resource_general_doc_based(dataset_dirpath,training_map,args);
+    for dataset_dirpath in cfg.additional_resource_list:
+        training_map=file_load_module.load_resource_general_doc_based(dataset_dirpath,training_map,args);
     #============================================================ 
     if args.dutch==True:
-        training_map=load_dfd(training_map,args);
+        training_map=file_load_module.load_dfd(training_map,args);
         print 'loaded DFD data'
     #============================================================ 
     if args.thompson==True:
-        training_map=load_tmi(training_map,args);
+        training_map=file_load_module.load_tmi(training_map,args);
         print 'loaded TMI data';
     #============================================================ 
     if args.dutch_original==True:
-        training_map=load_dfd_orig(training_map,args);
+        training_map=file_load_module.load_dfd_orig(training_map,args);
         print 'loaded DFD(dutch) data'
     #============================================================ 
     #Use TFIDF feature. There's some feature selection way. This way is controlled by flag
@@ -439,10 +176,10 @@ def create_multilabel_datastructure(dir_path, args):
         file_obj=codecs.open(filepath, 'r', 'utf-8');
         tokens_in_label=tokenize.wordpunct_tokenize(file_obj.read());
         file_obj.close();
-        lemmatized_tokens_in_label=[lemmatizer.lemmatize(t.lower()) for t in tokens_in_label];
+        lemmatized_tokens_in_label=[cfg.lemmatizer.lemmatize(t.lower()) for t in tokens_in_label];
         if args.stop==True:
             lemmatized_tokens_in_label=\
-                    [t for t in lemmatized_tokens_in_label if t not in stopwords and t not in symbols];
+                    [t for t in lemmatized_tokens_in_label if t not in stopwords and t not in cfg.symbols];
         if level==1:
             #ラベル列，token列のタプルにして追加
             training_data_list.append(([alphabet_label.upper() for alphabet_label in alphabet_label_list],
@@ -464,35 +201,34 @@ def construct_classifier_for_1st_sent_based(all_thompson_tree,args):
     """
     文ごとにラベル付けをする分類器の構築
     必ず，trainingにthompsonを利用する
-    ただし，拡張できるようにしておきたい
+    追加のデータ・セットがある場合はconfig.pyのadditional_resource_general_dfdに記載
+    #TODO せっかくsemi-supervisedの利点があるのだから，ラベルなしの文書をtrainingに利用できる仕組みを整えたらどうか？
     """
     exno=str(args.experiment_no);
     
-    motif_vector=[unichr(i) for i in xrange(65,65+26)];
-    motif_vector.remove(u'O'); motif_vector.remove(u'I'); motif_vector.remove(u'Y');
     sentence_labeled_map={};    
     training_map={};
     tfidf_score_map={};
     feature_map_character={};
     #============================================================ 
     if args.thompson==True:
-        sentence_labeled_map=load_tmi(sentence_labeled_map,args);
+        sentence_labeled_map=file_load_module.load_tmi(sentence_labeled_map,args);
     else:
         sys.exit('You must specify -thompson to construct sentence based classifier');
     #============================================================ 
+    #追加のデータ・セットがあった場合にこのコードを使うようにするうまい仕組みを考えないとね
+    #Read additional dataset which labeled per sentences. Loaded sentences are added to sentence_labeled_map
+    for dataset_dirpath in cfg.additional_resource_list:
+        sentence_labeled_map=file_load_module.load_resource_general_sent_based(dataset_dirpath,sentence_labeled_map,args);        
+    #============================================================ 
     if args.dutch==True:
-        training_map=load_dfd(training_map,args);
+        #文単位でデータを読み込みして，training_mapに保存
+        #load DFD dataset.
+        training_map=file_load_module.load_dfd(training_map,args);
     #============================================================ 
     if args.dutch_original==True:
         #training_map=load_dfd_orig(training_map,args);
         sys.exit("under const")
-    #============================================================ 
-    #追加のデータ・セットがあった場合にこのコードを使うおう
-    """    
-    for data_set in data_set_list:
-        pass;
-        #label treeの下に登録を繰り返す
-        """
     #============================================================ 
     #これはあまりよくない条件なので，あとで書き換えておくこと
     if not args.tfidf==True:
@@ -534,6 +270,9 @@ def construct_classifier_for_1st_sent_based(all_thompson_tree,args):
                             exno, tfidf_idea, args);
 
 def doc_or_sent_based(all_thompson_tree,args):
+    """    
+    call different function by args.ins_range
+    """
     if args.ins_range=='document':
         construct_classifier_for_1st_layer(all_thompson_tree,args)
     

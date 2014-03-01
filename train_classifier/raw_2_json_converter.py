@@ -1,5 +1,6 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
+__date__='2014/3/1'
 
 import sys,json,re,codecs,os,glob;
 from nltk.corpus import stopwords;
@@ -13,7 +14,7 @@ stopwords = stopwords.words('english');
 symbols = ["'", '"', '`', '.', ',', '-', '!', '?', ':', ';', '(', ')'];
 
 #specify raw document dirpath here
-raw_doc_path='../../dutch_folktale_corpus/dutch_folktale_database_translated_kevin_system/translated_train/'
+raw_doc_path='../../dutch_folktale_corpus/dutch_folktale_database_translated_kevin_system/translated_test/'
 #specify raw document dirpath here
 raw_doc_path_2='../parsed_json/'
 #specify IFN raw document dirpath here
@@ -23,7 +24,7 @@ raw_doc_path_ifn='../../corpus_dir/translated_google_new_format/'
 raw_doc_path_dfd_orig='../../dutch_folktale_corpus/given_script/top_dutch/top_document_test/';
 
 #specify json document dirpath here
-json_doc_path='../training_resource/dfd/'
+json_doc_path='../test_resource/dfd/'
 #specify json document dirpath here
 json_doc_path_2='../training_resource/tmi/'
 #specify json document of IFN dirpath here
@@ -56,6 +57,7 @@ def json_converter_1(raw_doc_list):
     """
     ファイル名がラベルになっている場合のみ有効
     ファイル名の形式 ラベル_ラベル2_ラベル3
+    文書単位の場合のみ有効．つまりDFDに対して有効
     This function converts raw document into json format.
     The File format must be underbar concatenated TMIlabels like TMIlabel1_TMIlabel2_TMIlabel3_...
     RETURN None
@@ -72,35 +74,10 @@ def json_converter_1(raw_doc_list):
 
         json_f_str['labels']=labels;
         json_f_str['doc_str']=doc_str;
+        json_f_str['instance_range']='document'
 
         with codecs.open(json_doc_path+filename,'w','utf-8') as f:
             json.dump(json_f_str,f,ensure_ascii='False',indent=4);
-
-'''
-def json_converter_1(raw_doc_list):
-    """
-    ファイル名がラベルになっている場合のみ有効
-    ファイル名の形式 ラベル_ラベル2_ラベル3
-    This function converts raw document into json format.
-    The File format must be underbar concatenated TMIlabels like TMIlabel1_TMIlabel2_TMIlabel3_...
-    RETURN None
-    OutJsonFormat map json_f_str {'labels':list [unicode label],'doc_str':list document[list sentence[unicode token]]} 
-    """
-    for f in raw_doc_list:
-        json_f_str={}; 
-        labels=[];        
-        filename=os.path.basename(f);
-        [labels.append(l) for l in filename.split('_') if re.search(r'[A-Z]',l)];
-
-        f_obj=codecs.open(f,'r','utf-8');
-        doc_str=generate_sentence_instances(f_obj);        
-        
-        json_f_str['labels']=labels;
-        json_f_str['doc_str']=doc_str;
-
-        with codecs.open(json_doc_path+filename,'w','utf-8') as f:
-            json.dump(json_f_str,f,ensure_ascii='False',indent=4);
-'''
 
 def json_converter_2():
     """
@@ -121,6 +98,7 @@ def json_converter_2():
         
         json_f_str['labels']=[parent_node];
         json_f_str['doc_str']=document;
+        json_f_str['instance_range']='sentence'
 
         filename=parent_node+'.json';
         with codecs.open(json_doc_path_2+filename,'w','utf-8') as f:
@@ -221,7 +199,7 @@ def json_converter_ifn_head():
         
         json_f_str['labels']=motifs_in_doc;
         json_f_str['doc_str']=tokens_stack;
-
+        json_f_str['instance_range']='sentence'
         
         with codecs.open(json_doc_path_ifn+filename,'w','utf-8') as f:
             json.dump(json_f_str,f,ensure_ascii='False',indent=4);
@@ -247,7 +225,8 @@ def json_converter_dfd_orig():
         
         dfd_orig_one_doc_map['labels']=label_list;
         dfd_orig_one_doc_map['doc_str']=(tokenized_document,None);
-        
+        dfd_orig_one_doc_map['instance_range']='document'
+
         with codecs.open(json_doc_path_dfd_orig+os.path.basename(filepath),'w','utf-8') as json_content:
             json.dump(dfd_orig_one_doc_map,json_content,ensure_ascii=False,indent=4);
 
@@ -291,7 +270,7 @@ def extract_leaf_content_for_class_training(class_lebel, target_subtree_map, cla
     
 if __name__=='__main__':
     raw_doc_list=make_filelist(raw_doc_path);
-    #json_converter_1(raw_doc_list); 
-    #json_converter_2();
-    #json_converter_ifn_head();
+    json_converter_1(raw_doc_list); 
+    json_converter_2();
+    json_converter_ifn_head();
     json_converter_dfd_orig();
