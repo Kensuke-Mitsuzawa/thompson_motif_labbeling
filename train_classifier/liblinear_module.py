@@ -198,9 +198,8 @@ def tuning_arow(correct_label_key,exno,training_file,dev_file,mode):
     thompsonだけの訓練の時にはfirst，オランダ語も加えた時にはsecondを使う
     RETURN: tuple (float best_accuracy, float hyper_parameter )
     """
-
-    print training_file;
-    print dev_file;
+    print 'training file is:',training_file;
+    print 'devlop file is:',dev_file;
     #最適なハイパーパラメータを探索する
     hyp_start=1;
     hyp_end=10;
@@ -222,8 +221,6 @@ def tuning_arow(correct_label_key,exno,training_file,dev_file,mode):
             tmp_modelpath='../classifier/arow/'+correct_label_key+'.arowmodel1st.'+exno;
         elif mode=='second':
             tmp_modelpath='../classifier/arow/'+correct_label_key+'.arowmodel2nd.'+exno;            
-        #print '-'*30;
-        #print '{} hyp:{}'.format(tmp_modelpath, hyp_tmp);
         arow_args=['arow_learn', '-i', str(iter_times), '-r', str(hyp_tmp), '-s', training_file, tmp_modelpath];
 
         try:
@@ -246,15 +243,21 @@ def tuning_arow(correct_label_key,exno,training_file,dev_file,mode):
         except AttributeError: 
             print '[Warning] occured Attribute error'            
             continue;
-            
+        
         if not processed_line==u'' and float(result_acc)<float(processed_line):
             result_acc=float(processed_line);
             print 'best score {} at {}'.format(result_acc, hyp_tmp);
             best_acc=(result_acc, hyp_tmp);
     #--------------------------------------------------------------
-    print '{} hyp:{}'.format(tmp_modelpath, hyp_tmp);
-    print 'Best result is {}'.format(best_acc);
-    print '-'*30;
+    if best_acc==None:
+        print 'Grid search is failed in any reason.'
+        print 'Use default hyper parameter:0.1'
+        best_acc=(None,0.1);
+        print '-'*30;
+    else:
+        print 'The result of gird search'
+        print 'model is saved to:{} hyper parameter is:{}'.format(tmp_modelpath, hyp_tmp);
+        print '-'*30;
 
     return best_acc;
 
@@ -316,7 +319,7 @@ def decode_and_add_arow(additional_instances_stack,instances_for_train,instances
                 prob_stack.append(line);
         #必要のない~4番目までの情報を削除する
         del prob_stack[:4];
-
+       
         #確信度が高い行数を調べる
         additional_instances_tuple=get_instance_above_threshold(prob_stack,correct_label_key,dutch_testfile_path,args);
         #ラベルごとに正例と負例が，additional_instances_stackに集められる
@@ -345,7 +348,6 @@ def get_instance_above_threshold(prob_stack,correct_label_key,dutch_testfile_pat
             sys.exit('Some problems happened in Arow model decoding');
        
         elif re.search(ur'(\+1|-1)\s0', line) or re.search(ur'(\+1|-1)\s(\+|-)[0-9]+.+', line):
-            print line;
             if re.search(ur'Accuracy .+% \(.+\)', line):
                 line=re.sub(ur'Accuracy .+% \(.+\)', ur'', line);
             decision, prob=line.split();
@@ -529,7 +531,8 @@ def shape_format(training_map,mode,args):
             #そもそもどうしてこんなことしてるかというと，close_testとかいう勘違い関数があったから
             #長い目でみると，書き換えが必要
             instances_line_for_train=instances_for_train+instances_for_test; 
-
+           
+            print 'mode',mode
             if mode=='super':
                 #writeout training data to liblinear format file
                 with codecs.open(prefix_path_to_training_f+correct_label_key+suffix_path_to_tarining_f+exno,
@@ -561,11 +564,11 @@ def shape_format(training_map,mode,args):
                     #Liblinear logisticのモデルを構築
                     best_acc=0;
                     training_logistic_model(best_acc,weight_parm,correct_label_key,tmp_modelpath_log,training_file,exno);
-            else:
+            
+            elif mode=='semi':
                 if args.training=='arow':
                     additional_instances_stack=decode_and_add_arow(additional_instances_stack,instances_for_train,
                                                                    instances_for_test,correct_label_key,exno,args);
-               
                 elif args.training==u'logistic':
                     additional_instances_stack=decode_and_add_logistic(additional_instances_stack,instances_for_train,
                                                                        instances_for_test,correct_label_key,exno,args);
@@ -580,24 +583,15 @@ def conv_to_featurespace_for_dutch_in_arowmode(dutch_training_tree,feature_map_c
     """    
     #ここから変換開始
     dutch_trainingmap_featurespace={};
-    for label in dutch_training_tree:
+    for label,instances in dutch_training_tree.items():
         #one_insは一文ごとが格納されている
-        for one_ins in dutch_training_tree[label]:
+        for one_ins in instances:
             one_ins_featurespace=[];
             for t in one_ins:
                 if t in feature_map_character:                
                     for feature_candidate in feature_map_character[t]:
-                        if len(feature_candidate.split(u'_'))==2:
-                            domainlabel=feature_candidate.split(u'_')[0];
-                            token=u'_';
-                            featurevalue=feature_candidate.split(u'_')[1];
-                        elif len(feature_candidate.split(u'_'))==3: 
-                            domainlabel, token, featurevalue=feature_candidate.split(u'_');
-                        
                         feature_number=feature_map_numeric[feature_candidate];
-                        if re.search(ur'[0-9]+', featurevalue):
-                            one_ins_featurespace.append( (feature_number, float(featurevalue) ));
-                        elif re.search(ur'unigram', featurevalue):
+                        if re.search(ur'BOW', feature_candidate):
                             one_ins_featurespace.append( (feature_number, 1 ));
             if not one_ins_featurespace==[]:
                 if label not in dutch_trainingmap_featurespace:
@@ -639,9 +633,10 @@ def out_to_libsvm_format_arow(doc_based_map,sentence_based_map,feature_map_numer
     #トンプソン木からのデータだけを先に訓練してしまう
     shape_format(thompson_training_tree_featurespace,'super',args);
 
-    #文書単位のデータ（一文ごと）をlibsvm_formatに変換する       
+    #文書単位のデータ（一文ごと）をlibsvm_formatに変換する
     doc_based_trainingmap_featurespace=conv_to_featurespace_for_dutch_in_arowmode(doc_based_map,feature_map_character,feature_map_numeric);
     #thompson木で訓練したモデルで判断して，閾値以上の確信度が得られた事例だけ得る
+    #TODO doc_based_trainingmap_featurespaceが空になっている原因を探る
     additional_instance_stack=shape_format(doc_based_trainingmap_featurespace,'semi',args);
     #thompsonから生成した訓練データ libsvm_formatと↑を足し合わせて，ファイルに書き込む
     add_additional_instances(additional_instance_stack,args);

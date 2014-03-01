@@ -307,9 +307,9 @@ if __name__=='__main__':
     parser.add_argument('-dutch_original', 
                         help='If added, document from original dutch document is added to training corpus', 
                         action='store_true');
-    parser.add_argument('-AIC',
-                        help='If added, American Indian folktales corpus is used as training',
-                        action='store_true');
+    #parser.add_argument('-AIC',
+    #                    help='If added, American Indian folktales corpus is used as training',
+    #                    action='store_true');
     parser.add_argument('-thompson', 
                         help='If added, outline from thompson tree is added to training corpus', 
                         action='store_true');
@@ -331,10 +331,10 @@ if __name__=='__main__':
                         default='2');
     parser.add_argument('-exno', '--experiment_no',
                         help='save in different file',
-                        default=0);
+                        default='00');
     parser.add_argument('-arow_thres', '--arow_thres',
                         help='The threshold to controll semi-supervised training with arow classifier',
-                        default=0.0);
+                        default=0.5);
     parser.add_argument('-dev', '--dev',
                         help='developping mode',
                         action='store_true');
